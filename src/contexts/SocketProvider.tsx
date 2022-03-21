@@ -5,46 +5,30 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { UNPARSABLE_JSON_OBJECT } from "./constant";
-
-type SocketMessage = {
-  event?: string;
-  version?: number;
-  numLevels?: number;
-  feed?: string;
-  product_id?: string;
-  product_ids?: string[];
-  bids: number[][];
-  asks: number[][];
-};
+import { SocketRequest, SocketResponse } from "../shared/socket";
+import { SocketRequestAction, UNPARSABLE_JSON_OBJECT } from "./constant";
 
 type SocketInformation = {
   readyState: number;
+  lastMessage: SocketResponse;
+  getWebsocket: WebSocket | null;
   productIds: string[];
-  lastMessage: SocketMessage;
-  changeProductIds: (productIds: string[]) => void;
-  changeEvent: (eventName: string) => void;
-  getWebsocket: () => WebSocket | null;
+  subscribe: (productIds: string[], event?: string) => void;
 };
 
 export const SocketContext = React.createContext<SocketInformation>({
   readyState: 0,
+  lastMessage: {},
+  getWebsocket: null,
   productIds: [],
-  lastMessage: {
-    bids: [],
-    asks: [],
-  },
-  changeProductIds: () => {},
-  changeEvent: () => {},
-  getWebsocket: () => null,
+  subscribe: () => {},
 });
 
 const SocketProvider: React.FC = (props) => {
   const socket = useRef<WebSocket | null>(null);
-  const [event, setEvent] = useState("subscribe");
-  const [feed] = useState("book_ui_1");
-  const [productIds, setProductIds] = useState(["PI_ETHUSD"]);
-  const [readyState, setReadyState] = useState(0);
+  const [productIds, setProductIds] = useState<string[]>(["PI_XBTUSD"]);
+  const [event, setEvent] = useState<string>(SocketRequestAction.SUBSCRIBE);
+  const [readyState, setReadyState] = useState<number>(0);
   const [lastMessage, setLastMessage] = useState<
     WebSocketEventMap["message"] | null
   >(null);
@@ -57,42 +41,29 @@ const SocketProvider: React.FC = (props) => {
     }
   }, [lastMessage]);
 
-  const changeProductIdsHandler = (productIds: string[]) => {
-    setProductIds(productIds);
-  };
-
-  const changeEventHandler = (eventName: string) => {
-    setEvent(eventName);
-  };
-
-  const sendMessage = useCallback((message: string) => {
+  const sendMessage = (message: string) => {
     if (socket.current?.readyState === 1) {
       socket.current.send(message);
     }
-  }, []);
+  };
 
-  const sendMessageJson = useCallback(
-    (message: {}) => {
-      sendMessage(JSON.stringify(message));
-    },
-    [sendMessage]
-  );
+  const sendMessageJson = useCallback((message: SocketRequest) => {
+    sendMessage(JSON.stringify(message));
+  }, []);
 
   useEffect(() => {
     const defaultWSURL = "wss://www.cryptofacilities.com/ws/v1";
     const webSocketURL = process.env.REACT_APP_WS_URL || defaultWSURL;
     socket.current = new WebSocket(webSocketURL);
-
     socket.current.onopen = function () {
       setReadyState(socket.current?.readyState ?? 0);
-      const requestMessage = {
-        event: event,
-        feed: feed,
+      const requests: SocketRequest = {
+        event: event || SocketRequestAction.SUBSCRIBE,
+        feed: "book_ui_1",
         product_ids: productIds,
       };
-      sendMessageJson(requestMessage);
+      sendMessageJson(requests);
     };
-
     socket.current.onclose = function (event) {
       setReadyState(socket.current?.readyState ?? 0);
       if (event.wasClean) {
@@ -103,33 +74,44 @@ const SocketProvider: React.FC = (props) => {
         console.log("[close] Connection died");
       }
     };
-
     socket.current.onerror = function (error) {
       setReadyState(socket.current?.readyState ?? 0);
       console.log(`[error] ${error}`);
     };
-
     socket.current.onmessage = function (event) {
-      setLastMessage((current) => (current = event));
+      setLastMessage(event);
     };
-
     return () => {
       socket.current?.close();
     };
-  }, [event, feed, productIds, sendMessageJson]);
+  }, [event, productIds, sendMessageJson]);
 
-  const getWebsocket = useCallback(() => {
-    return socket.current;
-  }, []);
+  const subscribeHandler = useCallback(
+    (productIds: string[], event?: string) => {
+      setProductIds(productIds);
+      setEvent(event || SocketRequestAction.SUBSCRIBE);
+    },
+    []
+  );
 
-  const contextValue: SocketInformation = {
-    readyState: readyState,
-    productIds: productIds,
-    lastMessage: lastJsonMessage,
-    changeProductIds: changeProductIdsHandler,
-    changeEvent: changeEventHandler,
-    getWebsocket: getWebsocket,
-  };
+  useEffect(() => {
+    const requests: SocketRequest = {
+      event: event || SocketRequestAction.SUBSCRIBE,
+      feed: "book_ui_1",
+      product_ids: productIds,
+    };
+    sendMessageJson(requests);
+  }, [productIds, event, readyState, sendMessageJson]);
+
+  const contextValue: SocketInformation = useMemo(() => {
+    return {
+      readyState: readyState,
+      lastMessage: lastJsonMessage,
+      getWebsocket: socket.current,
+      productIds: productIds,
+      subscribe: subscribeHandler,
+    };
+  }, [readyState, lastJsonMessage, productIds, subscribeHandler]);
 
   return (
     <SocketContext.Provider value={contextValue}>

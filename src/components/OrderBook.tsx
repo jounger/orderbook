@@ -5,21 +5,38 @@ import React, {
   useRef,
   useState,
 } from "react";
+import "../assets/OrderBook.css";
+import { SocketRequestAction } from "../contexts/constant";
 import { SocketContext } from "../contexts/SocketProvider";
 import { book } from "../shared/book";
 import { compare2dASC, compare2dDESC } from "../utils/common";
-import BookRow from "./BookRow";
-import BookRows from "./BookRows";
+import BookBids from "./BookBids";
+import FeedButton from "./FeedButton";
+import GroupSize from "./GroupSize";
+
+type productType = { product_id: string; ticks: number[] };
 
 const OrderBook: React.FC = () => {
   const socketContext = useContext(SocketContext);
-  const [ticket, setTicket] = useState<number>(0.5);
   const bids = useRef<number[][]>([]);
   const asks = useRef<number[][]>([]);
   const groupedBids = useRef<book[]>([]);
   const groupedAsks = useRef<book[]>([]);
+  const maxTotal = useRef<number>(0);
+  const products = useRef<productType[]>([
+    {
+      product_id: "PI_XBTUSD",
+      ticks: [0.5, 1.0, 2.5],
+    },
+    {
+      product_id: "PI_ETHUSD",
+      ticks: [0.05, 1.0, 2.5],
+    },
+  ]);
+  const [product, setProduct] = useState<productType>(products.current[0]);
+  const [tick, setTick] = useState<number>(0.5);
 
-  const findRowIndex = useCallback((rows: number[][], row: number[]) => {
+  const findRowIndex = (rows: number[][], row: number[]) => {
     let start = 0;
     let end = rows.length - 1;
     let pre = -1;
@@ -33,57 +50,49 @@ const OrderBook: React.FC = () => {
       else end = mid - 1;
     }
     return [-1, pre];
-  }, []);
-
-  const updateRow = useCallback(
-    (rows: number[][], row: number[]) => {
-      const [index, pre] = findRowIndex(rows, row);
-      if (index !== -1) {
-        if (row[1] > 0) {
-          rows.splice(index, 1, row);
-        } else {
-          rows.splice(index, 1);
-        }
-      } else {
-        if (row[1] > 0) {
-          const newIndex = pre > 0 && pre < rows.length ? pre + 1 : pre;
-          rows.splice(newIndex, 0, row);
-        } else {
-          console.log("NOT EXISTED", row);
-        }
-      }
-      return rows;
-    },
-    [findRowIndex]
-  );
+  };
 
   const updateRows = useCallback(
     (currentRows: number[][], newRows: number[][]) => {
-      const copyCurrentRows = [...currentRows].sort(compare2dASC);
-      newRows.forEach((row) => updateRow(copyCurrentRows, row));
-      return copyCurrentRows;
+      const rows = [...currentRows].sort(compare2dASC);
+      newRows.forEach((row) => {
+        const [index, pre] = findRowIndex(rows, row);
+        if (index !== -1) {
+          if (row[1] > 0) {
+            rows.splice(index, 1, row);
+          } else {
+            rows.splice(index, 1);
+          }
+        } else {
+          if (row[1] > 0) {
+            const newIndex = pre > 0 && pre < rows.length ? pre + 1 : pre;
+            rows.splice(newIndex, 0, row);
+          } else {
+            // console.log("NOT EXISTED", row);
+          }
+        }
+      });
+      return rows;
     },
-    [updateRow]
+    []
   );
 
-  const roundDownToTicket = (num: number, ticket: number) => {
+  const roundDownToTick = (num: number, tick: number) => {
     const decimalPlace =
-      Math.floor(ticket) === ticket
-        ? 0
-        : ticket.toString().split(".")[1].length || 0;
+      Math.floor(tick) === tick ? 0 : tick.toString().split(".")[1].length || 0;
     const roundToDecimal =
       Math.floor(num * Math.pow(10, decimalPlace)) / Math.pow(10, decimalPlace);
-    const roundDound = (Math.floor(roundToDecimal / ticket) * ticket).toFixed(
+    const roundDound = (Math.floor(roundToDecimal / tick) * tick).toFixed(
       decimalPlace
     );
     return parseFloat(roundDound);
   };
 
-  const groupByTicket = useCallback(
+  const groupByTick = useCallback(
     (rows: number[][]) => {
       const map = rows
         .map((row) => {
-          const price = roundDownToTicket(row[0], ticket);
+          const price = roundDownToTick(row[0], tick);
           const itemInit: book = {
             price: price,
             size: row[1],
@@ -113,58 +122,121 @@ const OrderBook: React.FC = () => {
       const arr = Array.from(map.values());
       return arr;
     },
-    [ticket]
+    [tick]
   );
+
+  const getMaxTotal = (bids: book[], asks: book[]) => {
+    const lastBidTotal = bids[bids.length - 1]?.total || 0;
+    const lastAskTotal = asks[bids.length - 1]?.total || 0;
+    return lastBidTotal > lastAskTotal ? lastBidTotal : lastAskTotal;
+  };
+
+  const selectGroupSizeHandler = useCallback(
+    (event: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = event.target.value;
+      const groupSize = parseFloat(value);
+      setTick(groupSize);
+    },
+    []
+  );
+
+  const toggleFeedHandler = useCallback(() => {
+    const oldIndex = products.current.findIndex(
+      (prod) => prod.product_id === product.product_id
+    );
+    const oldProduct = products.current[oldIndex];
+    socketContext.subscribe(
+      [oldProduct.product_id],
+      SocketRequestAction.UNSUBSCRIBE
+    );
+    const newIndex = products.current.length - oldIndex - 1;
+    const newProduct = products.current[newIndex];
+    socketContext.subscribe(
+      [newProduct.product_id],
+      SocketRequestAction.SUBSCRIBE
+    );
+    setTick(newProduct.ticks[0]);
+    setProduct(newProduct);
+  }, [socketContext, product]);
+
+  const killFeedHandler = useCallback(() => {
+    if (socketContext.readyState === 1) {
+      socketContext.getWebsocket?.close();
+    } else {
+      socketContext.subscribe(
+        [product.product_id],
+        SocketRequestAction.SUBSCRIBE
+      );
+    }
+  }, [socketContext, product]);
 
   useEffect(() => {
     const msg = socketContext.lastMessage;
-    if (msg && msg.product_id) {
+    if (msg && msg.product_id && msg.bids && msg.asks) {
       switch (msg.feed) {
         case "book_ui_1":
-          const updatedBids = updateRows(bids.current, msg.bids);
-          bids.current = [...updatedBids];
-          groupedBids.current = groupByTicket(updatedBids.sort(compare2dDESC));
-
-          const updatedAsks = updateRows(asks.current, msg.asks);
-          asks.current = [...updatedAsks];
-          groupedAsks.current = groupByTicket(updatedAsks.sort(compare2dASC));
+          if (msg.bids.length > 0) {
+            const updatedBids = updateRows(bids.current, msg.bids);
+            bids.current = [...updatedBids];
+            groupedBids.current = groupByTick(updatedBids.sort(compare2dDESC));
+          }
+          if (msg.asks.length > 0) {
+            const updatedAsks = updateRows(asks.current, msg.asks);
+            asks.current = [...updatedAsks];
+            groupedAsks.current = groupByTick(updatedAsks.sort(compare2dASC));
+          }
           break;
         case "book_ui_1_snapshot":
           bids.current = msg.bids;
           asks.current = msg.asks;
-          groupedBids.current = groupByTicket(bids.current);
-          groupedAsks.current = groupByTicket(asks.current);
+          groupedBids.current = groupByTick(bids.current);
+          groupedAsks.current = groupByTick(asks.current);
           break;
         default:
           break;
       }
-      // groupedBids.current.length = 11;
-      // groupedAsks.current.length = 11;
+      maxTotal.current = getMaxTotal(groupedBids.current, groupedAsks.current);
     }
-    return () => {};
-  }, [socketContext.lastMessage, groupByTicket, updateRows]);
+  }, [socketContext.lastMessage, groupByTick, updateRows]);
 
   return (
-    <div>
-      <div className="flex flex-row flex-nowrap justify-between">
-        <BookRows rows={groupedBids.current}>
-          {groupedBids.current.map((row, index) => (
-            <BookRow key={index} row={row}></BookRow>
-          ))}
-        </BookRows>
-        <BookRows rows={groupedAsks.current} className={"flex-row-reverse"}>
-          {groupedAsks.current.map((row, index) => (
-            <BookRow
-              key={index}
-              row={row}
-              className={"flex-row-reverse"}
-            ></BookRow>
-          ))}
-        </BookRows>
+    <div className="ui__panel">
+      <div className="ui__header flex flex-row justify-between">
+        <div className="ui__title">Orderbook: {product.product_id}</div>
+        <GroupSize
+          tick={tick}
+          ticks={product.ticks}
+          selectGroupSize={selectGroupSizeHandler}
+        ></GroupSize>
       </div>
-      {/* {bids.current.map((bid, id) => (
-        <pre key={id}>{bid[0] + " > " + bid[1]}</pre>
-      ))} */}
+      <div className="ui__body h-screen overflow-scroll">
+        <div className="book-main flex flex-row flex-nowrap justify-center">
+          <div className="book-bids">
+            <BookBids rows={groupedBids.current} maxTotal={maxTotal.current} />
+          </div>
+          <div className="book-asks">
+            <BookBids
+              rows={groupedAsks.current}
+              maxTotal={maxTotal.current}
+              className="flex-row-reverse"
+            ></BookBids>
+          </div>
+        </div>
+      </div>
+      <div className="ui__footer flex flex-row justify-center">
+        <FeedButton
+          icon="<>"
+          label="Toggle Feed"
+          className="bg-purple-500"
+          onClick={toggleFeedHandler}
+        ></FeedButton>
+        <FeedButton
+          icon="!"
+          label="Kill Feed"
+          className="bg-red-500"
+          onClick={killFeedHandler}
+        ></FeedButton>
+      </div>
     </div>
   );
 };
