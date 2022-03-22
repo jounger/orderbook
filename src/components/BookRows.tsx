@@ -1,7 +1,7 @@
 import React from "react";
-import { book } from "../shared/book";
+import { BookBid } from "../shared/orderBook";
 
-const BookRows: React.FC<{ rows: book[]; className?: string }> = (props) => {
+const BookRows: React.FC<{ rows: BookBid[]; className?: string }> = (props) => {
   const isReverse = props.className?.includes("reverse");
   return (
     <div>

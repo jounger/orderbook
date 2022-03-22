@@ -8,7 +8,7 @@ import React, {
 import "../assets/OrderBook.css";
 import { SocketRequestAction } from "../contexts/constant";
 import { SocketContext } from "../contexts/SocketProvider";
-import { book } from "../shared/book";
+import { BookBid, Product } from "../shared/orderBook";
 import { compare2dASC, compare2dDESC } from "../utils/common";
 import BookBids from "./BookBids";
 import FeedButton from "./FeedButton";
@@ -18,16 +18,14 @@ import {
   faCircleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 
-type productType = { product_id: string; ticks: number[] };
-
 const OrderBook: React.FC = () => {
   const socketContext = useContext(SocketContext);
   const bids = useRef<number[][]>([]);
   const asks = useRef<number[][]>([]);
-  const groupedBids = useRef<book[]>([]);
-  const groupedAsks = useRef<book[]>([]);
+  const groupedBids = useRef<BookBid[]>([]);
+  const groupedAsks = useRef<BookBid[]>([]);
   const maxTotal = useRef<number>(0);
-  const products = useRef<productType[]>([
+  const products = useRef<Product[]>([
     {
       product_id: "PI_XBTUSD",
       ticks: [0.5, 1.0, 2.5],
@@ -37,7 +35,7 @@ const OrderBook: React.FC = () => {
       ticks: [0.05, 1.0, 2.5],
     },
   ]);
-  const [product, setProduct] = useState<productType>(products.current[0]);
+  const [product, setProduct] = useState<Product>(products.current[0]);
   const [tick, setTick] = useState<number>(0.5);
 
   const findRowIndex = (rows: number[][], row: number[]) => {
@@ -97,13 +95,13 @@ const OrderBook: React.FC = () => {
       const map = rows
         .map((row) => {
           const price = roundDownToTick(row[0], tick);
-          const itemInit: book = {
+          const bookBid: BookBid = {
             price: price,
             size: row[1],
             total: 0,
             count: 0,
           };
-          return itemInit;
+          return bookBid;
         })
         .reduce((previous, current, index, array) => {
           const key = current.price;
@@ -122,14 +120,14 @@ const OrderBook: React.FC = () => {
             item.count += 1;
           }
           return previous.set(key, item);
-        }, new Map<number, book>());
+        }, new Map<number, BookBid>());
       const arr = Array.from(map.values());
       return arr;
     },
     [tick]
   );
 
-  const getMaxTotal = (bids: book[], asks: book[]) => {
+  const getMaxTotal = (bids: BookBid[], asks: BookBid[]) => {
     const lastBidTotal = bids[bids.length - 1]?.total || 0;
     const lastAskTotal = asks[bids.length - 1]?.total || 0;
     return lastBidTotal > lastAskTotal ? lastBidTotal : lastAskTotal;

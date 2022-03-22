@@ -1,10 +1,10 @@
 import React from "react";
-import { book } from "../shared/book";
+import { BookBid } from "../shared/orderBook";
 import BookBars from "./BookBars";
 import BookRows from "./BookRows";
 
 const BookBids: React.FC<{
-  rows: book[];
+  rows: BookBid[];
   maxTotal: number;
   className?: string;
 }> = (props) => {

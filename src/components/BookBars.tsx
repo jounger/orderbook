@@ -1,8 +1,8 @@
-import { book } from "../shared/book";
+import { BookBid } from "../shared/orderBook";
 import { useMemo } from "react";
 
 const BookBars: React.FC<{
-  rows: book[];
+  rows: BookBid[];
   maxTotal: number;
   className?: string;
 }> = (props) => {
