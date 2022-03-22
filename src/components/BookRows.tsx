@@ -1,8 +1,13 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { BookBid } from "../shared/orderBook";
 
 const BookRows: React.FC<{ rows: BookBid[]; className?: string }> = (props) => {
-  const isReverse = props.className?.includes("reverse");
+  const styles = useMemo(() => {
+    const isReverse = props.className?.includes("reverse");
+    return {
+      color: `var(${isReverse ? "--down-color" : "--up-color"})`,
+    };
+  }, [props.className]);
   return (
     <div>
       {props.rows.map((row, index) => (
@@ -20,9 +25,7 @@ const BookRows: React.FC<{ rows: BookBid[]; className?: string }> = (props) => {
             <span>{row.size}</span>
           </div>
           <div className="basis-4/12 py-0 px-1">
-            <span className={`${isReverse ? "down_color" : "up_color"}`}>
-              {row.price}
-            </span>
+            <span style={styles}>{row.price}</span>
           </div>
         </div>
       ))}
