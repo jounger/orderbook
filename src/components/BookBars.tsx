@@ -1,5 +1,4 @@
 import { book } from "../shared/book";
-import classes from "../assets/BookBars.module.css";
 import { useMemo } from "react";
 
 const BookBars: React.FC<{
@@ -7,21 +6,19 @@ const BookBars: React.FC<{
   maxTotal: number;
   className?: string;
 }> = (props) => {
-  const svgRowHeight = 24;
+  const svgRowHeight = 16;
   const svgStyle = useMemo(() => {
     const isReverse = props.className?.includes("reverse");
-    const upColor = "1, 167, 129";
-    const downColor = "228, 75, 68";
     return {
       height: props.rows.length * svgRowHeight,
       transform: `scale(${isReverse ? 1 : -1}, 1)`,
-      fill: `rgb(${isReverse ? downColor : upColor})`,
+      fill: `var(${isReverse ? "--down-color" : "--up-color"})`,
     };
-  }, [props.rows.length, props.className]);
+  }, [props.className, props.rows.length]);
   return (
     <div className="book__side grow">
       <div className="book__bars">
-        <svg className={classes.svg} style={svgStyle}>
+        <svg className="z-0 w-full pointer-events-none" style={svgStyle}>
           {props.rows.map((row, index) => (
             <g key={index}>
               <rect

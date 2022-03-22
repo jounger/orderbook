@@ -1,10 +1,9 @@
-import "./App.css";
 import Orderbook from "./components/OrderBook";
 import SocketProvider from "./contexts/SocketProvider";
 
 function App() {
   return (
-    <div className="App container mx-auto">
+    <div className="container">
       <SocketProvider>
         <Orderbook></Orderbook>
       </SocketProvider>

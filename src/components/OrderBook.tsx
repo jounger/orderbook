@@ -13,6 +13,10 @@ import { compare2dASC, compare2dDESC } from "../utils/common";
 import BookBids from "./BookBids";
 import FeedButton from "./FeedButton";
 import GroupSize from "./GroupSize";
+import {
+  faArrowRightArrowLeft,
+  faCircleExclamation,
+} from "@fortawesome/free-solid-svg-icons";
 
 type productType = { product_id: string; ticks: number[] };
 
@@ -200,16 +204,18 @@ const OrderBook: React.FC = () => {
   }, [socketContext.lastMessage, groupByTick, updateRows]);
 
   return (
-    <div className="ui__panel">
-      <div className="ui__header flex flex-row justify-between">
-        <div className="ui__title">Orderbook: {product.product_id}</div>
+    <div className="ui__panel mx-auto w-full text-xs text-white divide-y">
+      <div className="ui__header flex flex-row justify-between items-center m-0 py-0 px-2 h-10 leading-7 text-base">
+        <div className="ui__title uppercase">
+          Orderbook: {product.product_id}
+        </div>
         <GroupSize
           tick={tick}
           ticks={product.ticks}
           selectGroupSize={selectGroupSizeHandler}
         ></GroupSize>
       </div>
-      <div className="ui__body h-screen overflow-scroll">
+      <div className="ui__body h-96 overflow-y-scroll">
         <div className="book-main flex flex-row flex-nowrap justify-center">
           <div className="book-bids">
             <BookBids rows={groupedBids.current} maxTotal={maxTotal.current} />
@@ -223,15 +229,15 @@ const OrderBook: React.FC = () => {
           </div>
         </div>
       </div>
-      <div className="ui__footer flex flex-row justify-center">
+      <div className="ui__footer flex flex-row justify-center justify-items-center items-center m-0 py-0 px-2 h-14">
         <FeedButton
-          icon="<>"
+          icon={faArrowRightArrowLeft}
           label="Toggle Feed"
           className="bg-purple-500"
           onClick={toggleFeedHandler}
         ></FeedButton>
         <FeedButton
-          icon="!"
+          icon={faCircleExclamation}
           label="Kill Feed"
           className="bg-red-500"
           onClick={killFeedHandler}

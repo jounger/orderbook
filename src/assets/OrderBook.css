@@ -1,4 +1,9 @@
+:root {
+  --up-color: rgb(1, 167, 129);
+  --down-color: rgb(228, 75, 68);
+}
+
 .ui__panel {
   max-width: 600px;
-  width: 100%;
+  background-color: rgb(16, 24, 38);
 }

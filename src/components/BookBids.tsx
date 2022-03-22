@@ -1,5 +1,4 @@
 import React from "react";
-import classes from "../assets/BookBids.module.css";
 import { book } from "../shared/book";
 import BookBars from "./BookBars";
 import BookRows from "./BookRows";
@@ -10,14 +9,16 @@ const BookBids: React.FC<{
   className?: string;
 }> = (props) => {
   return (
-    <div className="book__side grow">
-      <div className={`book__header flex ${props.className} justify-around`}>
-        <div className="text-center basis-1/12"></div>
-        <div className="text-center basis-3/12">Total</div>
-        <div className="text-center basis-4/12">Size</div>
-        <div className="text-center basis-4/12">Price</div>
+    <div className="book__side grow text-right">
+      <div
+        className={`book__header flex ${props.className} justify-around uppercase text-slate-300`}
+      >
+        <div className="basis-1/12"></div>
+        <div className="basis-3/12 py-0 px-1">Total</div>
+        <div className="basis-4/12 py-0 px-1">Size</div>
+        <div className="basis-4/12 py-0 px-1">Price</div>
       </div>
-      <div className={classes.book__bars}>
+      <div className="book__bars h-0">
         <BookBars
           rows={props.rows}
           maxTotal={props.maxTotal}

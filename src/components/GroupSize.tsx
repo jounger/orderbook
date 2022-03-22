@@ -6,7 +6,11 @@ const GroupSize: React.FC<{
   selectGroupSize: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }> = (props) => {
   return (
-    <select onChange={props.selectGroupSize} value={props.tick}>
+    <select
+      onChange={props.selectGroupSize}
+      value={props.tick}
+      className="px-2 py-1 m-0 bg-slate-700 text-slate-300 text-sm rounded"
+    >
       {props.ticks.map((tick, index) => (
         <option key={index} value={tick}>
           Group {tick}
